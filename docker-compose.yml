@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # Your existing monitoring stack (from /Users/benlokos/development/Logging/)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ../Logging/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  loki:
+    image: grafana/loki:2.8.2
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ../Logging/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+
+  promtail:
+    image: grafana/promtail:2.8.2
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ../Logging/promtail/promtail-config.yml:/etc/promtail/config.yml
+      - /var/log:/var/log
+      - ../Logging/logs:/logs
+      - ./logs:/scraper-logs  # Mount scraper logs
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../Logging/grafana/provisioning:/etc/grafana/provisioning
+      - ../Logging/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+      - loki
+
+  # Example scraper with monitoring
+  ruger-scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile.scraper
+    container_name: ruger-scraper
+    restart: unless-stopped
+    environment:
+      - LOKI_URL=http://loki:3100
+      - PROMETHEUS_URL=http://prometheus:9090
+      - GRAFANA_URL=http://grafana:3000
+      - SCRAPER_NAME=ruger_scraper
+      - SCRAPER_VERSION=2.0.0
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - PROMETHEUS_PORT=8000
+      - HEALTH_CHECK_PORT=8001
+    volumes:
+      - ./logs:/app/logs
+      - ./output:/app/output
+    ports:
+      - "8000:8000"  # Prometheus metrics
+      - "8001:8001"  # Health checks
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+      - loki
+    # Uncomment to run scraper on schedule
+    # command: >
+    #   sh -c "while true; do
+    #     python ruger_scraper_example.py &&
+    #     sleep 3600;
+    #   done"
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  loki_data:
+  grafana_data:
