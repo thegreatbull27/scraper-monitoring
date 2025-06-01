@@ -160,3 +160,22 @@ class ScraperLogger:
             new_proxy=new_proxy,
             **kwargs
         )
+
+# Global convenience function
+_default_logger = None
+
+def get_logger(name: str = None) -> structlog.BoundLogger:
+    """
+    Get a logger instance. If no default logger is configured, 
+    create one with default configuration.
+    """
+    global _default_logger
+    
+    if _default_logger is None:
+        from .config import MonitoringConfig
+        config = MonitoringConfig()
+        _default_logger = ScraperLogger(config)
+    
+    if name:
+        return _default_logger.get_logger(name)
+    return _default_logger.get_logger()
