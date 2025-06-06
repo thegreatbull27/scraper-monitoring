@@ -5,7 +5,7 @@ import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
-from typing import Dict, Any, Callable, List
+from typing import Dict, Any, Callable, List, Optional
 from urllib.parse import urlparse
 
 from .config import MonitoringConfig
@@ -211,3 +211,27 @@ class HealthChecker:
                 pass
         
         return HealthCheckHandler
+
+
+# Global convenience function
+_default_health_checker = None
+
+
+def start_health_server(port: int = 8080,
+                        config: Optional[MonitoringConfig] = None
+                        ) -> HealthChecker:
+    """
+    Start a health check server. If no config is provided,
+    use default configuration.
+    """
+    global _default_health_checker
+    
+    if config is None:
+        config = MonitoringConfig()
+        config.health_port = port
+    
+    if _default_health_checker is None:
+        _default_health_checker = HealthChecker(config)
+    
+    _default_health_checker.start_server()
+    return _default_health_checker
