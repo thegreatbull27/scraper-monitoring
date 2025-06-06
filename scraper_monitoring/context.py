@@ -199,3 +199,6 @@ class ScrapingContext:
             self.logger.info("Scraping context completed successfully")
         
         self.shutdown()
+
+# Alias for backward compatibility
+MonitoringContext = ScrapingContext
