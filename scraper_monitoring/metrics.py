@@ -235,3 +235,20 @@ class ScraperMetrics:
     def get_registry(self) -> CollectorRegistry:
         """Get the metrics registry."""
         return self.registry
+
+# Global convenience function
+_default_metrics = None
+
+def get_metrics_registry() -> CollectorRegistry:
+    """
+    Get a metrics registry. If no default metrics collector is configured,
+    create one with default configuration.
+    """
+    global _default_metrics
+    
+    if _default_metrics is None:
+        from .config import MonitoringConfig
+        config = MonitoringConfig()
+        _default_metrics = ScraperMetrics(config)
+    
+    return _default_metrics.get_registry()
