@@ -205,3 +205,6 @@ def with_error_handling(error_types: tuple = (Exception,),
         
         return wrapper
     return decorator
+
+# Alias for backward compatibility
+track_scraping_operation = track_scrape_operation
